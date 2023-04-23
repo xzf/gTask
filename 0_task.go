@@ -2,11 +2,12 @@ package task
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 const (
-	statusWait = 0
-	statusRun  = 1
+	statusWait int32 = 0
+	statusRun  int32 = 1
 )
 
 type Task struct {
@@ -14,7 +15,9 @@ type Task struct {
 	jobLock        sync.Mutex
 	jobQueue       []func()
 	jobControlChan chan uint8
-	status         int
+	jobWg          sync.WaitGroup
+	status         int32
+	waitChan       chan uint8
 }
 
 //type job struct {
@@ -25,37 +28,41 @@ func (t *Task) Run(job func()) {
 		return
 	}
 	t.jobLock.Lock()
-
 	t.jobQueue = append(t.jobQueue, job)
-	if t.status == statusWait {
-		t.status = statusRun
-		t.jobControlChan <- 0
+	t.jobWg.Add(1)
+	if atomic.CompareAndSwapInt32(&t.status, statusWait, statusRun) {
+		t.waitChan <- 0
 	}
 	t.jobLock.Unlock()
 }
 
 func (t *Task) asyncRunThread() {
 	for {
-		<-t.jobControlChan
+		<-t.waitChan
+		t.waitChan <- 0
 		t.jobLock.Lock()
 		var job func()
-		if len(t.jobQueue) != 0 {
-			job = t.jobQueue[0]
-			t.jobQueue = t.jobQueue[1:]
-		}
-		if job == nil {
-			t.status = statusWait
+		if len(t.jobQueue) == 0 {
+			atomic.CompareAndSwapInt32(&t.status, statusRun, statusWait)
+			<-t.waitChan
 			t.jobLock.Unlock()
 			continue
 		}
-		t.status = statusRun
+		job = t.jobQueue[0]
+		t.jobQueue = t.jobQueue[1:]
 		t.jobLock.Unlock()
 
+		t.jobControlChan <- 1
 		go func() {
 			defer func() {
-				t.jobControlChan <- 0
+				t.jobWg.Done()
+				<-t.jobControlChan
 			}()
 			job()
 		}()
 	}
+}
+
+func (t *Task) WaitNotJob() {
+	t.jobWg.Wait()
 }
