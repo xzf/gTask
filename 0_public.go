@@ -1,7 +1,7 @@
 package task
 
-func New(limit int) *Task {
-	task := &Task{
+func New(limit int) *task {
+	task := &task{
 		limit:          limit,
 		jobQueue:       nil,
 		jobControlChan: make(chan uint8, limit),

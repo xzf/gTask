@@ -11,7 +11,7 @@ func TestTask(t *testing.T) {
 	task := New(1)
 	times := int64(10000)
 	for i := int64(0); i < times; i++ {
-		task.Run(func() {
+		task.RunAsync(func() {
 			time.Sleep(time.Microsecond * 10)
 			atomic.AddInt64(&n, 1)
 		})
