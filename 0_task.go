@@ -10,7 +10,7 @@ const (
 	statusRun  int32 = 1
 )
 
-type task struct {
+type Task struct {
 	limit          int
 	jobLock        sync.Mutex
 	jobQueue       []func()
@@ -23,7 +23,7 @@ type task struct {
 //type job struct {
 //}
 
-func (t *task) RunAsync(job func()) {
+func (t *Task) RunAsync(job func()) {
 	if job == nil {
 		return
 	}
@@ -36,7 +36,7 @@ func (t *task) RunAsync(job func()) {
 	t.jobLock.Unlock()
 }
 
-func (t *task) asyncRunThread() {
+func (t *Task) asyncRunThread() {
 	for {
 		<-t.waitChan
 		t.waitChan <- 0
@@ -63,6 +63,6 @@ func (t *task) asyncRunThread() {
 	}
 }
 
-func (t *task) WaitNotJob() {
+func (t *Task) WaitNotJob() {
 	t.jobWg.Wait()
 }
